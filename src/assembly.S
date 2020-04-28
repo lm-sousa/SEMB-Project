@@ -18,22 +18,18 @@
 ; afterwards we can use the traditional
 ; semicolon
 .global asmfunction ; all assembly labels
- ; which are called
- ; from C need to be defined global
-asmfunction: ; entry point for
- ; assembly function
- out PORTB,r24
- call cfunction
- ; cfunction does not need to be
- ; declared here, the linker will find
- ; it (no type checking however)
- out PORTB,r23
- lds r14,variable
- out PORTB,r22
- mov r24,r14
- ret
-.global SIG_OVERFLOW1
- SIG_OVERFLOW1:
- out PORTB,r20
- out PORTB,r19
- reti
+    ; which are called
+    ; from C need to be defined global
+asmfunction:
+    in r30, PORTB
+    inc r30
+    out PORTB, r30
+    clr r24
+    inc r24
+    inc r24
+    clr r20
+    inc r20
+    inc r20
+    call cfunction
+    out PORTB, r24
+    ret
