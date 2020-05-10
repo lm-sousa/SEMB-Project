@@ -33,7 +33,9 @@ void hardwareInit(int comp){
 
 #define TASK(name, code) void name(void) __attribute__ ((naked)); \
  void name(void) { \
-    code \
+    while (true) { \
+        code \
+    } \
     asm volatile ( "ret" ); \
  }
 
@@ -44,23 +46,23 @@ TASK(t1, {
     digitalWrite(PD3, !digitalRead(PD3));
 });
 
-void runTask(void (*f)()) {
-    while (true) {
-        f();
+TASK(t2, {
+    for(int i = 0; i < 10000; i++) {
+        asm("nop");
     }
-}
-
-void* example = NULL;
+    digitalWrite(PD4, !digitalRead(PD4));
+});
 
 void addTask(void (*f)()) {
-    example = f;
+    // TODO
+    return;
 }
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
 void vTaskSwitchContext( void );
 
-volatile TCB_t * volatile pxCurrentTCB;
+volatile TCB_t * volatile pxCurrentTCB = NULL;
 
 void vPortYieldFromTick( void ) {
     /* This is a naked function so the context
@@ -82,20 +84,39 @@ void vPortYieldFromTick( void ) {
     /* Restore the context. If a context switch
     has occurred this will restore the context of
     the task being resumed. */
+    digitalWrite(PD7, !digitalRead(PD7));
     portRESTORE_CONTEXT();
     
     /* Return from this naked function. */
     asm volatile ( "ret" );
 }
 
+uint8_t cnt = 20;
 
 void vTaskIncrementTick() {
     // TODO
+    if (cnt) {
+        cnt--;
+        digitalWrite(PD5, !digitalRead(PD5));
+    } else {
+        cnt = 20;
+    }
+    
     return;
 }
 
 void vTaskSwitchContext() {
     // TODO
+    if (!pxCurrentTCB) {
+        pxCurrentTCB = t1;
+    }
+    if (!cnt) {
+        if (pxCurrentTCB == t1) {
+            pxCurrentTCB = t2;
+        } else if (pxCurrentTCB == t2) {
+            pxCurrentTCB = t1;
+        }
+    }
     return;
 }
 
@@ -112,5 +133,10 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 int main() {
     hardwareInit(Hz_2);
     addTask(t1);
-    runTask(example);
+    while (true) {
+        digitalWrite(PD6, !digitalRead(PD6));
+        for(int i = 0; i < 1000; i++) {
+            asm("nop");
+        }
+    }
 }
