@@ -58,6 +58,7 @@ void hardwareInit(int comp){
 TASK(t1, {
     for(int i = 0; i < 10000; i++) {
         asm("nop");
+        PORTD |= _BV(5);    // Enable
     }
     digitalWrite(PD3, !digitalRead(PD3));
 });
@@ -65,6 +66,7 @@ TASK(t1, {
 TASK(t2, {
     for(int i = 0; i < 10000; i++) {
         asm("nop");
+        PORTD &= ~_BV(5);   // Disable
     }
     digitalWrite(PD4, !digitalRead(PD4));
 });
@@ -87,11 +89,6 @@ void vPortYieldFromTick( void ) {
     portSAVE_CONTEXT();
 
     PORTD ^= _BV(6);
-    if ((*pxCurrentTCB)) {
-        PORTD |= _BV(5);    // Enable
-    } else {
-        PORTD &= ~_BV(5);   // Disable
-    }
 
     // Increment the tick count and check to see
     // if the new tick value has caused a delay
