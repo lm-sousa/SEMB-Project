@@ -1,5 +1,3 @@
-typedef void TCB_t;
-
 #define portSAVE_CONTEXT() \
 asm volatile ( \
  "push r0 \n\t" \

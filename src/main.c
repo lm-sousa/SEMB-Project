@@ -10,6 +10,14 @@
 #define Hz_2  31250 // compare match register 16MHz/256/2Hz
 #define Hz_2k 31    // compare match register 16MHz/256/2kHz
 
+typedef struct {
+    void (*function_pointer)(void);     // Pointer to task function.
+    uint16_t program_counter;   // Pointer to the next instruction to be ran of this task.
+    volatile uint16_t stack_ptr;         // Pointer to the address of the task's 'private' stack in memory
+    uint8_t frequency;          // Holds interval of ticks between activations.
+    uint8_t _cnt_to_activation; // Counts to zero. Activate function on zero.
+} Task_cenas;
+
 void hardwareInit(int comp){
     noInterrupts();  // disable all interrupts
     
@@ -31,12 +39,20 @@ void hardwareInit(int comp){
     interrupts();  // enable all interrupts
 }
 
-#define TASK(name, code) void name(void) __attribute__ ((naked)); \
- void name(void) { \
+#define TASK(name, code) \
+ void name##_f(void); \
+ Task_cenas name = { \
+    .function_pointer = name##_f , \
+    .program_counter = 0, \
+    .stack_ptr = 0, \
+    .frequency = 0, \
+    ._cnt_to_activation = 0 \
+ }; \
+ void name##_f(void) { \
     while (true) { \
         code \
     } \
-    asm volatile ( "ret" ); \
+    return; \
  }
 
 TASK(t1, {
@@ -62,32 +78,39 @@ void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
 void vTaskSwitchContext( void );
 
-volatile TCB_t * volatile pxCurrentTCB = NULL;
+uint16_t test = 0;
+volatile uint16_t* volatile pxCurrentTCB = &test;
 
 void vPortYieldFromTick( void ) {
-    /* This is a naked function so the context
-    is saved. */
+    // This is a naked function so the context
+    // is saved. 
     portSAVE_CONTEXT();
 
-    /* Increment the tick count and check to see
-    if the new tick value has caused a delay
-    period to expire. This function call can
-    cause a task to become ready to run. */
+    PORTD ^= _BV(6);
+    if ((*pxCurrentTCB)) {
+        PORTD |= _BV(5);    // Enable
+    } else {
+        PORTD &= ~_BV(5);   // Disable
+    }
+
+    // Increment the tick count and check to see
+    // if the new tick value has caused a delay
+    // period to expire. This function call can
+    // cause a task to become ready to run.
     vTaskIncrementTick();
     
-    /* See if a context switch is required.
-    Switch to the context of a task made ready
-    to run by vTaskIncrementTick() if it has a
-    priority higher than the interrupted task. */
+    // See if a context switch is required.
+    // Switch to the context of a task made ready
+    // to run by vTaskIncrementTick() if it has a
+    // priority higher than the interrupted task.
     vTaskSwitchContext();
     
-    /* Restore the context. If a context switch
-    has occurred this will restore the context of
-    the task being resumed. */
-    digitalWrite(PD7, !digitalRead(PD7));
+    // Restore the context. If a context switch
+    // has occurred this will restore the context of
+    // the task being resumed.
     portRESTORE_CONTEXT();
     
-    /* Return from this naked function. */
+    // Return from this naked function.
     asm volatile ( "ret" );
 }
 
@@ -97,7 +120,6 @@ void vTaskIncrementTick() {
     // TODO
     if (cnt) {
         cnt--;
-        digitalWrite(PD5, !digitalRead(PD5));
     } else {
         cnt = 20;
     }
@@ -105,16 +127,39 @@ void vTaskIncrementTick() {
     return;
 }
 
+int t1_inited = 0;
+int t2_inited = 0;
+
 void vTaskSwitchContext() {
-    // TODO
-    if (!pxCurrentTCB) {
-        pxCurrentTCB = t1;
+
+    if (t1_inited && !t1.stack_ptr) {
+        t1.stack_ptr=(*pxCurrentTCB);
+    } else if (t2_inited && !t2.stack_ptr) {
+        t2.stack_ptr=(*pxCurrentTCB);
     }
-    if (!cnt) {
-        if (pxCurrentTCB == t1) {
-            pxCurrentTCB = t2;
-        } else if (pxCurrentTCB == t2) {
-            pxCurrentTCB = t1;
+
+    if(!t1_inited) {
+        t1_inited = 1;
+        interrupts();
+        t1.function_pointer();
+    }
+    else if(!t2_inited) {
+        t2_inited = 1;
+        interrupts();
+        t2.function_pointer();
+    }
+    else {
+        // TODO
+        if (!(*pxCurrentTCB)) {
+            (*pxCurrentTCB) = t1.stack_ptr;
+        }
+        if (!cnt) {
+            PORTD ^= _BV(7);
+            if ((*pxCurrentTCB) == t1.stack_ptr) {
+                (*pxCurrentTCB) = t2.stack_ptr;
+            } else if ((*pxCurrentTCB) == t2.stack_ptr) {
+                (*pxCurrentTCB) = t1.stack_ptr;
+            }
         }
     }
     return;
@@ -132,11 +177,8 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 
 int main() {
     hardwareInit(Hz_2);
-    addTask(t1);
+    addTask(t1.function_pointer);
     while (true) {
-        digitalWrite(PD6, !digitalRead(PD6));
-        for(int i = 0; i < 1000; i++) {
-            asm("nop");
-        }
+        asm("nop");
     }
 }
