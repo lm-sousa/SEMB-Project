@@ -1,3 +1,19 @@
+#define portINIT_SP() \
+asm volatile ( \
+ "push r26 \n\t" \
+ "push r27 \n\t" \
+ "lds r26, pxCurrentTCB \n\t" \
+ "lds r27, pxCurrentTCB + 1 \n\t" \
+ "ld r28, x+ \n\t" \
+ "out __SP_L__, r28 \n\t" \
+ "ld r29, x+ \n\t" \
+ "out __SP_H__, r29 \n\t" \
+ "pop r27 \n\t" \
+ "pop r26 \n\t" \
+);\
+(*pxCurrentTCB) += 2;
+
+
 #define portSAVE_CONTEXT() \
 asm volatile ( \
  "push r0 \n\t" \
