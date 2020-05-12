@@ -56,19 +56,19 @@ void hardwareInit(int comp){
  }
 
 TASK(t1, {
-    for(int i = 0; i < 10000; i++) {
+    for(uint32_t i = 1000000; i > 0; i--) {
         asm("nop");
         PORTD |= _BV(5);    // Enable
     }
-    digitalWrite(PD3, !digitalRead(PD3));
+    PORTD ^= _BV(3);    // Toggle
 });
 
 TASK(t2, {
-    for(int i = 0; i < 10000; i++) {
+    for(uint32_t i = 1000000; i > 0; i--) {
         asm("nop");
         PORTD &= ~_BV(5);   // Disable
     }
-    digitalWrite(PD4, !digitalRead(PD4));
+    PORTD ^= _BV(4);    // Toggle
 });
 
 void addTask(void (*f)()) {
@@ -173,7 +173,8 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 }
 
 int main() {
-    hardwareInit(Hz_2);
+    hardwareInit(Hz_10);
+    t1_f();
     addTask(t1.function_pointer);
     while (true) {
         asm("nop");
