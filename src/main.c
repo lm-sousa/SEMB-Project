@@ -65,7 +65,7 @@ TASK(t1, {
 });
 
 TASK(t2, {
-    for(uint32_t i = 100000; i > 0; i--) {
+    for(uint32_t i = 1000000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(4);    // Toggle
@@ -75,7 +75,7 @@ TASK(t2, {
  volatile uint8_t t3_stack[STACK_SIZE_DEFAULT];
  Task_cenas t3 = {
     .function_pointer = t3_f ,
-    .stack_ptr = (uint16_t)&t3_stack,
+    .stack_ptr = (uint16_t)t3_stack,
     .frequency = 0,
     ._cnt_to_activation = 0
  };
@@ -148,7 +148,7 @@ void vTaskSwitchContext() {
     if(!t1_inited) {
         t1_inited = 1;
         interrupts();
-        pxCurrentTCB = t1.stack_ptr;
+        pxCurrentTCB = &t1.stack_ptr;
         task = 1;
         //portINIT_SP();
         t1.function_pointer();
@@ -156,7 +156,7 @@ void vTaskSwitchContext() {
     else if(!t2_inited) {
         t2_inited = 1;
         interrupts();
-        pxCurrentTCB = t2.stack_ptr;
+        pxCurrentTCB = &t2.stack_ptr;
         task = 2;
         //portINIT_SP();
         t2.function_pointer();
@@ -171,11 +171,11 @@ void vTaskSwitchContext() {
             if (task == 1) {
                 PORTD &= ~_BV(5);   // Disable
                 task = 2;
-                pxCurrentTCB = t2.stack_ptr;
+                pxCurrentTCB = &t2.stack_ptr;
             } else if (task == 2) {
                 PORTD |= _BV(5);    // Enable
                 task = 1;
-                pxCurrentTCB = t1.stack_ptr;
+                pxCurrentTCB = &t1.stack_ptr;
             }
         }
     }
