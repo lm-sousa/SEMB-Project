@@ -10,7 +10,7 @@
 #define Hz_2  31250 // compare match register 16MHz/256/2Hz
 #define Hz_2k 31    // compare match register 16MHz/256/2kHz
 
-#define STACK_SIZE_DEFAULT 50
+#define STACK_SIZE_DEFAULT 100
 
 #define RED_LED     5
 #define TICK_LED    6
@@ -18,6 +18,7 @@
 
 typedef struct {
     volatile uint8_t* stack_ptr;    // Pointer to the address of the task's 'private' stack in memory
+    uint8_t stack[STACK_SIZE_DEFAULT];
     void (*function_pointer)(void); // Pointer to task function.
     uint16_t program_counter;       // Pointer to the next instruction to be ran of this task.
     uint8_t frequency;              // Holds interval of ticks between activations.
@@ -53,7 +54,6 @@ void hardwareInit(int comp){
 
 #define TASK(name, code) \
  void name##_f(void); \
- uint8_t name##_stack[STACK_SIZE_DEFAULT]; \
  Task_cenas name = { \
     .function_pointer = name##_f , \
     .stack_ptr = 0, \
@@ -92,8 +92,8 @@ TASK(t3, {
 });
 
 
-void addTask(void (*f)()) {
-    // TODO
+void addTask(Task_cenas* task) {
+    task->stack_ptr = pxPortInitialiseStack(task->stack+STACK_SIZE_DEFAULT, task->function_pointer, 0);
     return;
 }
 
@@ -222,9 +222,9 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 }
 
 int main() {
-    t1.stack_ptr = pxPortInitialiseStack(t1_stack+STACK_SIZE_DEFAULT, t1_f, 0);
-    t2.stack_ptr = pxPortInitialiseStack(t2_stack+STACK_SIZE_DEFAULT, t2_f, 0);
-    t3.stack_ptr = pxPortInitialiseStack(t3_stack+STACK_SIZE_DEFAULT, t3_f, 0);
+    addTask(&t1);
+    addTask(&t2);
+    addTask(&t3);
 
     hardwareInit(Hz_10);
     while (true) {
