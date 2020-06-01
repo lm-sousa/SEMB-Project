@@ -16,13 +16,14 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define Hz_50   1250    // compare match register 16MHz/256/50Hz
 #define Hz_100  625     // compare match register 16MHz/256/100Hz
 #define Hz_500  125     // compare match register 16MHz/256/500Hz
-#define Hz_1k   62      // compare match register 16MHz/256/100Hz
+#define Hz_1k   62      // compare match register 16MHz/256/1kHz
 #define Hz_2k   31      // compare match register 16MHz/256/2kHz
-#define Hz_2k5  25      // compare match register 16MHz/256/2kHz
-#define Hz_5k   12      // compare match register 16MHz/256/500Hz
+#define Hz_2k5  25      // compare match register 16MHz/256/2.5kHz
+#define Hz_5k   12      // compare match register 16MHz/256/5kHz
+#define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_1k
+#define TICK_FREQUENCY Hz_100
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 
 #define STACK_SIZE_DEFAULT 100
@@ -99,10 +100,7 @@ void hardwareInit(){
  }
 
 TASK(idle, 255, 0, { // lowest priority task will run when no other task can run. This task is always ready.
-    for(uint32_t i = 50000; i > 0; i--) {
-        asm("nop");
-    }
-    PORTD ^= _BV(STATUS_LED);    // Pisca-pisca no ma no ma ei
+    asm("nop");
 });
 
 TASK(t1, 1, Hz_5, {
@@ -221,11 +219,12 @@ void vTaskIncrementTick() {
 }
 
 void vTaskSwitchContext() {
+    PORTD ^= _BV(STATUS_LED);    // Pisca-pisca no ma no ma ei
 
     if(tasks[task]->status == TASK_RUNNING)
         tasks[task]->status = TASK_READY;
 
-    PORTD ^= _BV(CS_LED); // toggle Context Switch LED
+    PORTD &= ~(_BV(CS_LED)); // turn off iddle task LED
 
     // find the highest priority task which is ready (i.e., task->priority is lowest)
 
@@ -241,6 +240,9 @@ void vTaskSwitchContext() {
     task = run_next_id;
     tasks[task]->status = TASK_RUNNING;
     pxCurrentTCB = &tasks[task]->stack_ptr;
+    if(run_next_id==0){
+        PORTD |= _BV(CS_LED); // turn on iddle task LED
+    }
     
     return;
 }
