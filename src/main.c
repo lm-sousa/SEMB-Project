@@ -36,12 +36,12 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 
 
 typedef struct {
-    volatile uint8_t*   stack_ptr;    // Pointer to the address of the task's 'private' stack in memory
-    void        (*function_pointer)(void); // Pointer to task function.
-    uint16_t     _cnt_to_activation;     // Counts to zero. Activate function on zero.
-    const uint8_t       priority;               // priority for fixed-priority scheduling
-    uint8_t             status;                 // status for scheduling.
-    const uint16_t      frequency;
+    volatile uint8_t*   stack_ptr;                  // Pointer to the address of the task's 'private' stack in memory
+    void                (*function_pointer)(void);  // Pointer to task function.
+    uint16_t            _cnt_to_activation;         // Counts to zero. Activate function on zero.
+    const uint8_t       priority;                   // Priority for fixed-priority scheduling
+    uint8_t             status;                     // Status for scheduling.
+    const uint16_t      frequency;                  // Number of ticks between activations
 } Task_cenas;
 
 
@@ -105,25 +105,6 @@ void hardwareInit(){
 
 #define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
 #define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
-
-TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
-    asm("nop");
-});
-
-TASK(t1, 1, Hz_5, {
-    PORTD ^= _BV(2);    // Toggle
-    suspend();
-});
-
-TASK(t2, 4, Hz_2, {
-    PORTD ^= _BV(3);    // Toggle
-    suspend();
-});
-
-TASK(t3, 10, Hz_10, {
-    PORTD ^= _BV(4);    // Toggle
-    suspend();
-});
 
 #define addTask(task) addTaskTest(&task, task##_stack)
 uint8_t addTaskTest(Task_cenas* task, uint8_t* stack) {
@@ -253,8 +234,6 @@ void vTaskSwitchContext() {
     return;
 }
 
-
-
 ISR(TIMER1_COMPA_vect, ISR_NAKED) {
     /* Call the tick function. */
     vPortYieldFromTick();
@@ -264,6 +243,31 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
     different task. */
     asm volatile ( "reti" );
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////// END OF bmOS CODE //////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
+    asm("nop");
+});
+
+TASK(t1, 1, Hz_5, {
+    PORTD ^= _BV(2);    // Toggle
+    suspend();
+});
+
+TASK(t2, 4, Hz_2, {
+    PORTD ^= _BV(3);    // Toggle
+    suspend();
+});
+
+TASK(t3, 10, Hz_10, {
+    PORTD ^= _BV(4);    // Toggle
+    suspend();
+});
 
 int main() {
 
