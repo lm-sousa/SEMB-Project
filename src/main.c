@@ -5,11 +5,25 @@
 #include <stdlib.h>
 #include "AVR_CS.h"
 
-enum status {RUNNING, WAITING, READY};
+enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 
-#define Hz_10 6250  // compare match register 16MHz/256/10Hz
-#define Hz_2  31250 // compare match register 16MHz/256/2Hz
-#define Hz_2k 31    // compare match register 16MHz/256/2kHz
+#define Hz_1    62500   // compare match register 16MHz/256/1Hz
+#define Hz_2    31250   // compare match register 16MHz/256/2Hz
+#define Hz_4    15625   // compare match register 16MHz/256/4Hz
+#define Hz_5    12500   // compare match register 16MHz/256/5Hz
+#define Hz_10   6250    // compare match register 16MHz/256/10Hz
+#define Hz_20   3125    // compare match register 16MHz/256/20Hz
+#define Hz_50   1250    // compare match register 16MHz/256/50Hz
+#define Hz_100  625     // compare match register 16MHz/256/100Hz
+#define Hz_500  125     // compare match register 16MHz/256/500Hz
+#define Hz_1k   62      // compare match register 16MHz/256/100Hz
+#define Hz_2k   31      // compare match register 16MHz/256/2kHz
+#define Hz_2k5  25      // compare match register 16MHz/256/2kHz
+#define Hz_5k   12      // compare match register 16MHz/256/500Hz
+#define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
+
+#define TICK_FREQUENCY Hz_1k
+#define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 
 #define STACK_SIZE_DEFAULT 100
 
@@ -21,13 +35,13 @@ enum status {RUNNING, WAITING, READY};
 
 
 typedef struct {
-    volatile uint8_t* stack_ptr;    // Pointer to the address of the task's 'private' stack in memory
-    uint8_t stack[STACK_SIZE_DEFAULT];
-    void (*function_pointer)(void); // Pointer to task function.
-    uint8_t _cnt_to_activation;     // Counts to zero. Activate function on zero.
-    uint8_t priority;               // priority for fixed-priority scheduling
-    uint8_t status;                 // status for scheduling.
-    float   frequency;
+    volatile uint8_t*   stack_ptr;    // Pointer to the address of the task's 'private' stack in memory
+    uint8_t     stack[STACK_SIZE_DEFAULT];
+    void        (*function_pointer)(void); // Pointer to task function.
+    uint16_t     _cnt_to_activation;     // Counts to zero. Activate function on zero.
+    const uint8_t       priority;               // priority for fixed-priority scheduling
+    uint8_t             status;                 // status for scheduling.
+    const uint16_t      frequency;
 } Task_cenas;
 
 
@@ -38,14 +52,14 @@ int task = 0;
 
 #define self *(tasks[task])
 #define yield() vPortYieldFromTick();
-#define suspend() self.status = WAITING; suspend(); continue;
+#define suspend() tasks[task]->status = TASK_WAITING; yield(); continue;
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
 void vTaskSwitchContext( void );
 uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *pvParameters );
 
-void hardwareInit(int comp){
+void hardwareInit(){
     noInterrupts();  // disable all interrupts
     
     pinMode(PD2, OUTPUT);
@@ -59,7 +73,7 @@ void hardwareInit(int comp){
     TCCR1B = 0;
     TCNT1 = 0;
     
-    OCR1A = comp;
+    OCR1A = TICK_FREQUENCY;
     TCCR1B |= (1 << WGM12);     // CTC mode
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
@@ -74,8 +88,8 @@ void hardwareInit(int comp){
     .stack_ptr = 0, \
     ._cnt_to_activation = 0, \
     .priority = pr, \
-    .status = READY, \
-    .frequency = fr \
+    .status = TASK_READY, \
+    .frequency = TASK_FREQUENCY(fr) \
  }; \
  void name##_f(void) { \
     while (true) { \
@@ -84,37 +98,25 @@ void hardwareInit(int comp){
     return; \
  }
 
-TASK(idle, 255, { // lowest priority task will run when no other task can run. This task is always ready.
-    for(uint32_t i = 500000; i > 0; i--) {
+TASK(idle, 255, 0, { // lowest priority task will run when no other task can run. This task is always ready.
+    for(uint32_t i = 50000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(STATUS_LED);    // Pisca-pisca no ma no ma ei
 });
 
-TASK(t1, 1, {
-    for(uint32_t i = 500000; i > 0; i--) {
-        asm("nop");
-    }
+TASK(t1, 1, Hz_5, {
     PORTD ^= _BV(2);    // Toggle
-
     suspend();
 });
 
-TASK(t2, 4, {
-    for(uint32_t i = 500000; i > 0; i--) {
-        asm("nop");
-    }
+TASK(t2, 4, Hz_2, {
     PORTD ^= _BV(3);    // Toggle
-    
     suspend();
 });
 
-TASK(t3, 10, {
-    for(uint32_t i = 500000; i > 0; i--) {
-        asm("nop");
-    }
+TASK(t3, 10, Hz_10, {
     PORTD ^= _BV(4);    // Toggle
-    
     suspend();
 });
 
@@ -179,8 +181,6 @@ void vPortYieldFromTick( void ) {
     // must be saved manually. 
     portSAVE_CONTEXT();
 
-    PORTD ^= _BV(TICK_LED);
-
     // Increment the tick count and check to see
     // if the new tick value has caused a delay
     // period to expire. This function call can
@@ -203,11 +203,18 @@ void vPortYieldFromTick( void ) {
 }
 
 void vTaskIncrementTick() {
-    // TODO
-    if (cnt) {
-        cnt--;
-    } else {
-        cnt = CNT_MAX;
+    
+    for (uint8_t i = 0; i < task_count; i++) {
+        if (tasks[i]) {
+            if (0 == tasks[i]->_cnt_to_activation) {
+                tasks[i]->status = TASK_READY;
+                tasks[i]->_cnt_to_activation = tasks[i]->frequency;
+                //PORTD ^= _BV(CS_LED); // toggle Context Switch LED
+            }
+            else {
+                (tasks[i]->_cnt_to_activation)--;
+            }
+        }
     }
     
     return;
@@ -215,12 +222,8 @@ void vTaskIncrementTick() {
 
 void vTaskSwitchContext() {
 
-    if (cnt) {
-        return;
-    }
-
-    if(tasks[task]->status == RUNNING)
-        tasks[task]->status = READY;
+    if(tasks[task]->status == TASK_RUNNING)
+        tasks[task]->status = TASK_READY;
 
     PORTD ^= _BV(CS_LED); // toggle Context Switch LED
 
@@ -229,14 +232,14 @@ void vTaskSwitchContext() {
     uint8_t run_next_id = 0;
     uint8_t run_next_pr = 255;
     for(uint8_t i = 0; i < task_count; i++){
-        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == READY) {
+        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == TASK_READY) {
             run_next_id = i;
             run_next_pr = tasks[i]->priority;
         }
     }
 
     task = run_next_id;
-    tasks[task]->status = RUNNING;
+    tasks[task]->status = TASK_RUNNING;
     pxCurrentTCB = &tasks[task]->stack_ptr;
     
     return;
@@ -247,7 +250,7 @@ void vTaskSwitchContext() {
 ISR(TIMER1_COMPA_vect, ISR_NAKED) {
     /* Call the tick function. */
     vPortYieldFromTick();
-
+    PORTD ^= _BV(TICK_LED);
     /* Return from the interrupt. If a context
     switch has occurred this will return to a
     different task. */
@@ -261,7 +264,7 @@ int main() {
     addTask(&t2);
     addTask(&t3);
 
-    hardwareInit(Hz_10);
+    hardwareInit();
     while (true) {
         asm("nop"); // interrrupts will stop this.
     }
