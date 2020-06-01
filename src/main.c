@@ -17,7 +17,7 @@ enum status {RUNNING, WAITING, READY};
 #define TICK_LED    6
 #define CS_LED      7
 #define CNT_MAX     20
-#define MAX_TASKS   15
+#define MAX_TASKS   14
 
 
 typedef struct {
@@ -27,11 +27,18 @@ typedef struct {
     uint8_t _cnt_to_activation;     // Counts to zero. Activate function on zero.
     uint8_t priority;               // priority for fixed-priority scheduling
     uint8_t status;                 // status for scheduling.
+    float   frequency;
 } Task_cenas;
 
 
-Task_cenas tasks[MAX_TASKS];
+Task_cenas* tasks[MAX_TASKS] = {0};
 uint8_t task_count = 0;
+uint8_t cnt = CNT_MAX;
+int task = 0;
+
+#define self *(tasks[task])
+#define yield() vPortYieldFromTick();
+#define suspend() self.status = WAITING; suspend(); continue;
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
@@ -60,14 +67,15 @@ void hardwareInit(int comp){
     interrupts();  // enable all interrupts
 }
 
-#define TASK(name, pr, code) \
+#define TASK(name, pr, fr, code) \
  void name##_f(void); \
  Task_cenas name = { \
     .function_pointer = name##_f , \
     .stack_ptr = 0, \
     ._cnt_to_activation = 0, \
     .priority = pr, \
-    .status = READY \
+    .status = READY, \
+    .frequency = fr \
  }; \
  void name##_f(void) { \
     while (true) { \
@@ -76,39 +84,45 @@ void hardwareInit(int comp){
     return; \
  }
 
-TASK(idle, 240, { // lowest priority task will run when no other task can run. This task is always ready.
+TASK(idle, 255, { // lowest priority task will run when no other task can run. This task is always ready.
     for(uint32_t i = 500000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(STATUS_LED);    // Pisca-pisca no ma no ma ei
 });
 
-TASK(t1, 2, {
+TASK(t1, 1, {
     for(uint32_t i = 500000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(2);    // Toggle
+
+    suspend();
 });
 
-TASK(t2, 70, {
+TASK(t2, 4, {
     for(uint32_t i = 500000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(3);    // Toggle
+    
+    suspend();
 });
 
-TASK(t3, 1, {
+TASK(t3, 10, {
     for(uint32_t i = 500000; i > 0; i--) {
         asm("nop");
     }
     PORTD ^= _BV(4);    // Toggle
+    
+    suspend();
 });
 
 
 
 uint8_t addTask(Task_cenas* task) {
     task->stack_ptr = pxPortInitialiseStack(task->stack+STACK_SIZE_DEFAULT, task->function_pointer, 0);
-    tasks[task_count] = *task;
+    tasks[task_count] = task;
     task_count++;
     return task_count - 1;
 }
@@ -188,9 +202,6 @@ void vPortYieldFromTick( void ) {
     asm volatile ( "ret" );
 }
 
-uint8_t cnt = CNT_MAX;
-int task = 0;
-
 void vTaskIncrementTick() {
     // TODO
     if (cnt) {
@@ -208,10 +219,8 @@ void vTaskSwitchContext() {
         return;
     }
 
-    if(task != 0){
-        // task 0 (idle task) must be ready at all times.
-        tasks[task].status = WAITING;
-    }
+    if(tasks[task]->status == RUNNING)
+        tasks[task]->status = READY;
 
     PORTD ^= _BV(CS_LED); // toggle Context Switch LED
 
@@ -220,17 +229,20 @@ void vTaskSwitchContext() {
     uint8_t run_next_id = 0;
     uint8_t run_next_pr = 255;
     for(uint8_t i = 0; i < task_count; i++){
-        if(tasks[i].priority <= run_next_pr && tasks[i].status == READY)
+        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == READY) {
             run_next_id = i;
-            run_next_pr = tasks[i].priority;
+            run_next_pr = tasks[i]->priority;
+        }
     }
 
     task = run_next_id;
-    tasks[run_next_id].status = RUNNING;
-    pxCurrentTCB = &tasks[run_next_id].stack_ptr;
+    tasks[task]->status = RUNNING;
+    pxCurrentTCB = &tasks[task]->stack_ptr;
     
     return;
 }
+
+
 
 ISR(TIMER1_COMPA_vect, ISR_NAKED) {
     /* Call the tick function. */
