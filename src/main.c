@@ -23,7 +23,7 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_100
+#define TICK_FREQUENCY Hz_20
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 
 #define STACK_SIZE_DEFAULT 100
@@ -37,7 +37,6 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 
 typedef struct {
     volatile uint8_t*   stack_ptr;    // Pointer to the address of the task's 'private' stack in memory
-    uint8_t     stack[STACK_SIZE_DEFAULT];
     void        (*function_pointer)(void); // Pointer to task function.
     uint16_t     _cnt_to_activation;     // Counts to zero. Activate function on zero.
     const uint8_t       priority;               // priority for fixed-priority scheduling
@@ -82,8 +81,9 @@ void hardwareInit(){
     interrupts();  // enable all interrupts
 }
 
-#define TASK4(name, pr, fr, code) \
+#define TASK5(name, pr, fr, stack_size, code) \
  void name##_f(void); \
+ uint8_t name##_stack[stack_size]; \
  Task_cenas name = { \
     .function_pointer = name##_f , \
     .stack_ptr = 0, \
@@ -99,13 +99,14 @@ void hardwareInit(){
     return; \
  }
 
+#define TASK4(name, pr, fr, code)   TASK5(name, pr, fr, STACK_SIZE_DEFAULT, code)
+#define TASK3(name, fr, code)       TASK4(name, 254, fr, code)
+#define TASK2(name, code)           TASK3(name, Hz_1, code)
 
-#define TASK3(name, pr, code) TASK4(name, pr, Hz_1, code)
+#define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
+#define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
 
-#define GET_TASK_MACRO(_1,_2,_3,_4,NAME,...) NAME
-#define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK4, TASK3, TASK2)(__VA_ARGS__)
-
-TASK(idle, 255, 0, { // lowest priority task will run when no other task can run. This task is always ready.
+TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
     asm("nop");
 });
 
@@ -124,10 +125,9 @@ TASK(t3, 10, Hz_10, {
     suspend();
 });
 
-
-
-uint8_t addTask(Task_cenas* task) {
-    task->stack_ptr = pxPortInitialiseStack(task->stack+STACK_SIZE_DEFAULT, task->function_pointer, 0);
+#define addTask(task) addTaskTest(&task, task##_stack)
+uint8_t addTaskTest(Task_cenas* task, uint8_t* stack) {
+    task->stack_ptr = pxPortInitialiseStack(stack+STACK_SIZE_DEFAULT, task->function_pointer, 0);
     tasks[task_count] = task;
     task_count++;
     return task_count - 1;
@@ -267,10 +267,10 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 
 int main() {
 
-    addTask(&idle); // This task must be the first one for its id to be 0.
-    addTask(&t1);
-    addTask(&t2);
-    addTask(&t3);
+    addTask(idle); // This task must be the first one for its id to be 0.
+    addTask(t1);
+    addTask(t2);
+    addTask(t3);
 
     hardwareInit();
     while (true) {
