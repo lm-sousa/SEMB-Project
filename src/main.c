@@ -82,7 +82,7 @@ void hardwareInit(){
     interrupts();  // enable all interrupts
 }
 
-#define TASK(name, pr, fr, code) \
+#define TASK4(name, pr, fr, code) \
  void name##_f(void); \
  Task_cenas name = { \
     .function_pointer = name##_f , \
@@ -98,6 +98,12 @@ void hardwareInit(){
     } \
     return; \
  }
+
+
+#define TASK3(name, pr, code) TASK4(name, pr, Hz_1, code)
+
+#define GET_TASK_MACRO(_1,_2,_3,_4,NAME,...) NAME
+#define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK4, TASK3, TASK2)(__VA_ARGS__)
 
 TASK(idle, 255, 0, { // lowest priority task will run when no other task can run. This task is always ready.
     asm("nop");
