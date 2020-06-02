@@ -194,9 +194,9 @@ void vTaskIncrementTick() {
             if (0 == tasks[i]->_cnt_to_activation) {
                 tasks[i]->status = TASK_READY;
                 tasks[i]->_cnt_to_activation = tasks[i]->frequency;
-                //PORTD ^= _BV(CS_LED); // toggle Context Switch LED
             }
-            else {
+            
+            if (0 != tasks[i]->_cnt_to_activation) {
                 (tasks[i]->_cnt_to_activation)--;
             }
         }
