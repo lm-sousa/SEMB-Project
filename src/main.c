@@ -20,10 +20,11 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define Hz_2k   31      // compare match register 16MHz/256/2kHz
 #define Hz_2k5  25      // compare match register 16MHz/256/2.5kHz
 #define Hz_5k   12      // compare match register 16MHz/256/5kHz
+#define Hz_10k  6       // compare match register 16MHz/256/10kHz
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_20
+#define TICK_FREQUENCY Hz_10
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 
 #define STACK_SIZE_DEFAULT 100
@@ -34,6 +35,21 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define CNT_MAX     20
 #define MAX_TASKS   14
 
+#define NUMBER_OF_MUTEXES 16
+
+#if !NUMBER_OF_MUTEXES || NUMBER_OF_MUTEXES > 32
+    #error NUMBER_OF_MUTEXES needs to be a value between 1 and 32.
+#endif
+
+#if NUMBER_OF_MUTEXES <= 8
+    typedef uint8_t mutex_mask_t;
+#elif NUMBER_OF_MUTEXES <= 16
+    typedef uint16_t mutex_mask_t;
+#elif NUMBER_OF_MUTEXES <= 32
+    typedef uint32_t mutex_mask_t;
+#endif
+
+#define TASK_REQUESTED_MUTEXES_ARE_UNLOCKED (!(tasks[i]->mutex_mask & mutex_master))
 
 typedef struct {
     volatile uint8_t*   stack_ptr;                  // Pointer to the address of the task's 'private' stack in memory
@@ -42,8 +58,10 @@ typedef struct {
     const uint8_t       priority;                   // Priority for fixed-priority scheduling
     uint8_t             status;                     // Status for scheduling.
     const uint16_t      frequency;                  // Number of ticks between activations
+    mutex_mask_t        mutex_mask;                 // bitlist of currently waiting mutexes for this task
 } Task_cenas;
 
+mutex_mask_t mutex_master = 0; // mutexes are inited to 0
 
 Task_cenas* tasks[MAX_TASKS] = {0};
 uint8_t task_count = 0;
@@ -58,6 +76,39 @@ void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
 void vTaskSwitchContext( void );
 uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *pvParameters );
+
+bool trylock(uint8_t index){
+    if(index >= NUMBER_OF_MUTEXES)
+        return 0;
+
+    if(mutex_master & _BV(index))
+        return 0;
+    
+    mutex_master |= _BV(index);
+    return 1;
+}
+
+void lock(uint8_t index){
+    if(index >= NUMBER_OF_MUTEXES)
+        return;
+
+    while(mutex_master & _BV(index)) {
+        tasks[task]->mutex_mask |= _BV(index);
+        yield();
+    }
+    tasks[task]->mutex_mask &= ~(_BV(index));
+    
+    mutex_master |= _BV(index);
+    return;
+}
+
+void unlock(uint8_t index){
+    if(index >= NUMBER_OF_MUTEXES)
+        return;
+    
+    mutex_master &= ~(_BV(index));
+    return;
+}
 
 void hardwareInit(){
     noInterrupts();  // disable all interrupts
@@ -90,7 +141,8 @@ void hardwareInit(){
     ._cnt_to_activation = 0, \
     .priority = pr, \
     .status = TASK_READY, \
-    .frequency = TASK_FREQUENCY(fr) \
+    .frequency = TASK_FREQUENCY(fr), \
+    .mutex_mask = 0 \
  }; \
  void name##_f(void) { \
     while (true) { \
@@ -218,7 +270,7 @@ void vTaskSwitchContext() {
     uint8_t run_next_id = 0;
     uint8_t run_next_pr = 255;
     for(uint8_t i = 0; i < task_count; i++){
-        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == TASK_READY) {
+        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == TASK_READY && TASK_REQUESTED_MUTEXES_ARE_UNLOCKED) {
             run_next_id = i;
             run_next_pr = tasks[i]->priority;
         }
