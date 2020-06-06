@@ -166,8 +166,7 @@ uint8_t addTaskTest(Task_cenas* task, uint8_t* stack) {
     return task_count - 1;
 }
 
-uint16_t test = 0;
-volatile void* volatile pxCurrentTCB = &test;
+volatile void* volatile pxCurrentTCB = 0;
 
 uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *pvParameters ) {
     uint16_t usAddress;
@@ -308,18 +307,26 @@ TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can
     asm("nop");
 });
 
-TASK(t1, 1, Hz_5, {
+TASK(t1, 1, Hz_2, {
     PORTD ^= _BV(2);    // Toggle
     suspend();
 });
 
 TASK(t2, 4, Hz_2, {
-    PORTD ^= _BV(3);    // Toggle
+    if (trylock(1)) {
+        PORTD ^= _BV(3);    // Toggle
+        yield();
+        unlock(1);
+    }
     suspend();
 });
 
-TASK(t3, 10, Hz_1, {
-    PORTD ^= _BV(4);    // Toggle
+TASK(t3, 10, Hz_2, {
+    if (trylock(1)) {
+        PORTD ^= _BV(4);    // Toggle
+        yield();
+        unlock(1);
+    }
     suspend();
 });
 
