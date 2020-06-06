@@ -32,7 +32,7 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define STATUS_LED  5
 #define TICK_LED    6
 #define CS_LED      7
-#define CNT_MAX     20
+
 #define MAX_TASKS   14
 
 #define NUMBER_OF_MUTEXES 16
@@ -65,12 +65,12 @@ mutex_mask_t mutex_master = 0; // mutexes are inited to 0
 
 Task_cenas* tasks[MAX_TASKS] = {0};
 uint8_t task_count = 0;
-uint8_t cnt = CNT_MAX;
 int task = 0;
+bool from_suspension = false;
 
 #define self *(tasks[task])
-#define yield() vPortYieldFromTick();
-#define suspend() tasks[task]->status = TASK_WAITING; yield(); continue;
+#define yield() from_suspension = true; vPortYieldFromTick();
+#define suspend() from_suspension = true; tasks[task]->status = TASK_WAITING; yield(); continue;
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
@@ -113,12 +113,12 @@ void unlock(uint8_t index){
 void hardwareInit(){
     noInterrupts();  // disable all interrupts
     
-    pinMode(PD2, OUTPUT);
-    pinMode(PD3, OUTPUT);
-    pinMode(PD4, OUTPUT);
-    pinMode(PD5, OUTPUT);
-    pinMode(PD6, OUTPUT);
-    pinMode(PD7, OUTPUT);
+    DDRD |= _BV(2);
+    DDRD |= _BV(3);
+    DDRD |= _BV(4);
+    DDRD |= _BV(STATUS_LED);
+    DDRD |= _BV(TICK_LED);
+    DDRD |= _BV(CS_LED);
 
     TCCR1A = 0;
     TCCR1B = 0;
@@ -133,7 +133,7 @@ void hardwareInit(){
 }
 
 #define TASK5(name, pr, fr, stack_size, code) \
- void name##_f(void); \
+ void name##_f(void) __attribute__ ( ( OS_task ) ); \
  uint8_t name##_stack[stack_size]; \
  Task_cenas name = { \
     .function_pointer = name##_f , \
@@ -222,7 +222,9 @@ void vPortYieldFromTick( void ) {
     // if the new tick value has caused a delay
     // period to expire. This function call can
     // cause a task to become ready to run.
-    vTaskIncrementTick();
+    if (!from_suspension)
+        vTaskIncrementTick();
+    from_suspension = false;
     
     // See if a context switch is required.
     // Switch to the context of a task made ready
@@ -316,7 +318,7 @@ TASK(t2, 4, Hz_2, {
     suspend();
 });
 
-TASK(t3, 10, Hz_10, {
+TASK(t3, 10, Hz_1, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
