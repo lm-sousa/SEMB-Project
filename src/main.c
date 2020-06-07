@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include "AVR_CS.h"
+#include "my_uart.h"
 
 enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 
@@ -24,7 +25,7 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_10
+#define TICK_FREQUENCY Hz_100
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 
 #define STACK_SIZE_DEFAULT 100
@@ -129,8 +130,6 @@ void hardwareInit(){
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
 
-    Serial.begin(115200);
-
     interrupts();  // enable all interrupts
 }
 
@@ -213,8 +212,25 @@ uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *p
 
     return pxTopOfStack;
 }
-uint64_t times[1000] = {0};
-uint64_t t_cnt = 0;
+unsigned long times[150] = {0};
+unsigned t_cnt = 0;
+
+void dumpTimes(){
+    
+    uart_init();
+
+    for (int i = 0; i < 150; i+=2) {
+            //char time[12];
+            //sprintf(time, "%llu", times[i+1] - times[i]);
+            //uart_putstr(time);
+            uart_putul(times[i+1] - times[i]);
+            _delay_ms(20);
+        }
+
+    while(1){
+        asm("nop");
+    }
+}
 void vPortYieldFromTick( void ) {
     times[t_cnt++] = micros();
     // This is a naked function so the context
@@ -235,18 +251,17 @@ void vPortYieldFromTick( void ) {
     // priority higher than the interrupted task.
     vTaskSwitchContext();
     
+    if (t_cnt > 1500) {
+        times[t_cnt++] = micros();
+        cli();
+        dumpTimes();
+    }
+
     // Restore the context. If a context switch
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
     times[t_cnt++] = micros();
-    if (t_cnt == 1000) {
-        cli();
-        for (int i = 0; i < 1000; i+=2) {
-            uint64_t time = times[i+1] - times[i];
-            Serial.println(time);
-        }
-    }
     
     // Return from this naked function.
     asm volatile ( "ret" );
