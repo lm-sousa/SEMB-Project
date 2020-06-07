@@ -263,7 +263,6 @@ void vPortYieldFromTick( void ) {
     
     if (t_cnt >= TIMES-2) {
         times[t_cnt] = micros();
-        t_cnt++;
         cli();
         TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
         sei();

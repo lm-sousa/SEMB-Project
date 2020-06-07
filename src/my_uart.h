@@ -18,4 +18,4 @@ void uart_putchar(char c);
 
 void uart_putstr(char *data);
 
-void uart_putul(uint32_t u);
+void uart_putul(uint64_t u);

@@ -24,10 +24,10 @@ void uart_putchar(char c) {
     UDR0 = c;
 }
 
-void uart_putul(unsigned long u) {
+void uart_putul(uint64_t u) {
     char c;
     // Loop until end of string writing char by char.
-    for (uint32_t i = 0; i < 32; i+=8){
+    for (uint32_t i = 0; i < 64; i+=8){
       c = u >> i;
       uart_putchar(c);
     }
