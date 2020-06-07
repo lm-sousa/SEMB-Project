@@ -130,6 +130,9 @@ void hardwareInit(){
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
 
+    uart_init();
+    uart_putstr("Successfull init!\n");
+
     interrupts();  // enable all interrupts
 }
 
@@ -212,25 +215,22 @@ uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *p
 
     return pxTopOfStack;
 }
-unsigned long times[150] = {0};
+#define TIMES 150
+unsigned long times[TIMES] = {0};
 unsigned t_cnt = 0;
 char time[12];
 
 void dumpTimes(){
-    
-    uart_init();
 
     uart_putstr("HI!\n");
+    
+    times[0] = micros();
+    _delay_ms(20);
+    times[1] = micros();
 
-    for (int i = 0; i < 150; i+=2) {
-        sprintf(time, "%lu\n\0", times[i+1] - times[i]);
+    for (int i = 0; i < TIMES; i+=2) {
+        sprintf(time, "%lu\n", times[i+1] - times[i]);
         uart_putstr(time);
-        /*uint64_t c_time = times[i+1] - times[i];
-        while (c_time) {
-            uart_putchar(48+c_time%10);
-            c_time /= 10;
-        }
-        uart_putchar('\n');*/
         _delay_ms(20);
     }
 
@@ -261,10 +261,13 @@ void vPortYieldFromTick( void ) {
     // priority higher than the interrupted task.
     vTaskSwitchContext();
     
-    if (t_cnt > 1500) {
+    if (t_cnt >= TIMES-2) {
         times[t_cnt] = micros();
         t_cnt++;
         cli();
+        TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
+        sei();
+        uart_putstr("HI11!\n");
         dumpTimes();
     }
 
