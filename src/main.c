@@ -130,9 +130,6 @@ void hardwareInit(){
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
 
-    uart_init();
-    uart_putstr("Successfull init!\n");
-
     interrupts();  // enable all interrupts
 }
 
@@ -229,7 +226,7 @@ void dumpTimes(){
     times[1] = micros();
 
     for (int i = 0; i < TIMES; i+=2) {
-        sprintf(time, "%lu\n", times[i+1] - times[i]);
+        sprintf(time, "%lu\n", (times[i+1] - times[i]));
         uart_putstr(time);
         _delay_ms(20);
     }
@@ -241,8 +238,7 @@ void dumpTimes(){
     }
 }
 void vPortYieldFromTick( void ) {
-    times[t_cnt] = micros();
-    t_cnt++;
+    times[t_cnt++] = micros();
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
@@ -274,8 +270,7 @@ void vPortYieldFromTick( void ) {
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
-    times[t_cnt] = micros();
-    t_cnt++;
+    times[t_cnt++] = micros();
     
     // Return from this naked function.
     asm volatile ( "ret" );
@@ -377,6 +372,15 @@ int main() {
     addTask(t1);
     addTask(t2);
     addTask(t3);
+
+    init();
+    uart_init();
+    uart_putstr("Successfull init!\n");
+    uart_putstr("micros: ");
+    sprintf(time, "%lu\n", micros());
+    uart_putstr(time);
+
+    
 
     hardwareInit();
     while (true) {
