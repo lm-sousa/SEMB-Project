@@ -129,6 +129,8 @@ void hardwareInit(){
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
 
+    Serial.begin(115200);
+
     interrupts();  // enable all interrupts
 }
 
@@ -211,8 +213,10 @@ uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *p
 
     return pxTopOfStack;
 }
-
+uint64_t times[1000] = {0};
+uint64_t t_cnt = 0;
 void vPortYieldFromTick( void ) {
+    times[t_cnt++] = micros();
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
@@ -235,6 +239,14 @@ void vPortYieldFromTick( void ) {
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
+    times[t_cnt++] = micros();
+    if (t_cnt == 1000) {
+        cli();
+        for (int i = 0; i < 1000; i+=2) {
+            uint64_t time = times[i+1] - times[i];
+            Serial.println(time);
+        }
+    }
     
     // Return from this naked function.
     asm volatile ( "ret" );
