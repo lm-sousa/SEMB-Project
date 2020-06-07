@@ -214,25 +214,35 @@ uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *p
 }
 unsigned long times[150] = {0};
 unsigned t_cnt = 0;
+char time[12];
 
 void dumpTimes(){
     
     uart_init();
 
+    uart_putstr("HI!\n");
+
     for (int i = 0; i < 150; i+=2) {
-            //char time[12];
-            //sprintf(time, "%llu", times[i+1] - times[i]);
-            //uart_putstr(time);
-            uart_putul(times[i+1] - times[i]);
-            _delay_ms(20);
+        sprintf(time, "%lu\n\0", times[i+1] - times[i]);
+        uart_putstr(time);
+        /*uint64_t c_time = times[i+1] - times[i];
+        while (c_time) {
+            uart_putchar(48+c_time%10);
+            c_time /= 10;
         }
+        uart_putchar('\n');*/
+        _delay_ms(20);
+    }
+
+    uart_putstr("DONE!\n");
 
     while(1){
         asm("nop");
     }
 }
 void vPortYieldFromTick( void ) {
-    times[t_cnt++] = micros();
+    times[t_cnt] = micros();
+    t_cnt++;
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
@@ -252,7 +262,8 @@ void vPortYieldFromTick( void ) {
     vTaskSwitchContext();
     
     if (t_cnt > 1500) {
-        times[t_cnt++] = micros();
+        times[t_cnt] = micros();
+        t_cnt++;
         cli();
         dumpTimes();
     }
@@ -261,7 +272,8 @@ void vPortYieldFromTick( void ) {
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
-    times[t_cnt++] = micros();
+    times[t_cnt] = micros();
+    t_cnt++;
     
     // Return from this naked function.
     asm volatile ( "ret" );
