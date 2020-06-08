@@ -240,7 +240,7 @@ void dumpTimes(){
     }
 }
 void vPortYieldFromTick( void ) {
-    times[t_cnt++] = micros2();
+    times[t_cnt++] = micros();
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
@@ -260,7 +260,7 @@ void vPortYieldFromTick( void ) {
     vTaskSwitchContext();
     
     if (t_cnt >= TIMES-2) {
-        times[t_cnt] = micros2();
+        times[t_cnt] = micros();
         cli();
         TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
         sei();
@@ -272,7 +272,7 @@ void vPortYieldFromTick( void ) {
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
-    times[t_cnt++] = micros2();
+    times[t_cnt++] = micros();
     
     // Return from this naked function.
     asm volatile ( "ret" );
@@ -377,7 +377,6 @@ int main() {
 
     init();
     /** init timer and uart */
-    start_counting_time();
     uart_init();
     uart_putstr("Successfull init!\n");
     uart_putstr("micros: ");
