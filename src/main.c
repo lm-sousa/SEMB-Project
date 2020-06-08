@@ -24,8 +24,9 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_10
+#define TICK_FREQUENCY Hz_1k
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
+#define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*(double)(Hz_1k/TICK_FREQUENCY))
 
 #define STACK_SIZE_DEFAULT 100
 
@@ -132,15 +133,15 @@ void hardwareInit(){
     interrupts();  // enable all interrupts
 }
 
-#define TASK5(name, pr, fr, stack_size, code) \
+#define TASK6(name, pr, fr, initial_delay, stack_size, code) \
  void name##_f(void) __attribute__ ( ( OS_task ) ); \
  uint8_t name##_stack[stack_size]; \
  Task_cenas name = { \
     .function_pointer = name##_f , \
     .stack_ptr = 0, \
-    ._cnt_to_activation = 0, \
+    ._cnt_to_activation = TASK_DELAY_TO_TICKS(initial_delay), \
     .priority = pr, \
-    .status = TASK_READY, \
+    .status = TASK_WAITING, \
     .frequency = TASK_FREQUENCY(fr), \
     .mutex_mask = 0 \
  }; \
@@ -151,9 +152,10 @@ void hardwareInit(){
     return; \
  }
 
-#define TASK4(name, pr, fr, code)   TASK5(name, pr, fr, STACK_SIZE_DEFAULT, code)
-#define TASK3(name, fr, code)       TASK4(name, 254, fr, code)
-#define TASK2(name, code)           TASK3(name, Hz_1, code)
+#define TASK5(name, priority, frequency, initial_delay, code)   TASK6(name, priority, frequency, initial_delay, STACK_SIZE_DEFAULT, code)
+#define TASK4(name, priority, frequency, code)                  TASK5(name, priority, frequency, 0, code)
+#define TASK3(name, frequency, code)                            TASK4(name, 254, frequency, code)
+#define TASK2(name, code)                                       TASK3(name, Hz_1, code)
 
 #define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
 #define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
@@ -307,25 +309,23 @@ TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can
     asm("nop");
 });
 
-TASK(t1, 1, Hz_2, {
+TASK(t1, 1, Hz_1, {
     PORTD ^= _BV(2);    // Toggle
     suspend();
 });
 
-TASK(t2, 4, Hz_2, {
+TASK(t2, 4, Hz_2, 0, {
     if (trylock(1)) {
         PORTD ^= _BV(3);    // Toggle
         yield();
-        unlock(1);
     }
     suspend();
 });
 
-TASK(t3, 10, Hz_2, {
+TASK(t3, 4, Hz_2, 1, {
     if (trylock(1)) {
         PORTD ^= _BV(4);    // Toggle
         yield();
-        unlock(1);
     }
     suspend();
 });
