@@ -250,9 +250,9 @@ void vTaskIncrementTick() {
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i]) {
             if (0 == tasks[i]->_cnt_to_activation) {
-                /*if (tasks[i]->status != TASK_DONE) {
-                    tasks[i]->stack_ptr = 1;//pxPortInitialiseStack(stack+STACK_SIZE_DEFAULT, tasks[i]->function_pointer, 0);
-                }*/
+                if (tasks[i]->status != TASK_DONE) {
+                    tasks[i]->stack_ptr = pxPortInitialiseStack(tasks[i]->stack_array_ptr+tasks[i]->stack_size, tasks[i]->function_pointer, 0);
+                }
                 tasks[i]->status = TASK_READY;
                 tasks[i]->_cnt_to_activation = tasks[i]->frequency;
             }
@@ -320,9 +320,12 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-TASK(t2, 4, Hz_5, 0, {
+TASK(t2, 4, Hz_1, 0, {
     PORTD ^= _BV(3);    // Toggle
-    suspend();
+    //suspend();
+    while(1) {
+        asm("nop");
+    }
 });
 
 TASK(t3, 4, Hz_2, 0, {
