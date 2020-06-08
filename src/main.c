@@ -213,16 +213,16 @@ uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *p
 
     return pxTopOfStack;
 }
-#define TIMES 150
+#define TIMES 300
 unsigned long times[TIMES] = {0};
 unsigned t_cnt = 0;
 char time[12];
 
 void vPortYieldFromTick( void ) {
-    times[t_cnt++] = micros();
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
+    times[t_cnt++] = micros();
 
     // Increment the tick count and check to see
     // if the new tick value has caused a delay
@@ -241,11 +241,11 @@ void vPortYieldFromTick( void ) {
     // priority higher than the interrupted task.
     vTaskSwitchContext();
 
+    times[t_cnt++] = micros();
     // Restore the context. If a context switch
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
-    times[t_cnt++] = micros();
     
     // Return from this naked function.
     asm volatile ( "ret" );
@@ -328,38 +328,24 @@ TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can
     asm("nop");
 });
 
-TASK(t1, 1, Hz_2, {
+TASK(t1, 1, Hz_1, {
     PORTD ^= _BV(2);    // Toggle
     suspend();
 });
 
 TASK(t2, 4, Hz_2, {
-    if (trylock(1)) {
-        PORTD ^= _BV(3);    // Toggle
-        yield();
-        unlock(1);
-    }
+    PORTD ^= _BV(3);    // Toggle
     suspend();
 });
 
-TASK(t3, 10, Hz_2, {
-    if (trylock(1)) {
-        PORTD ^= _BV(4);    // Toggle
-        yield();
-        unlock(1);
-    }
+TASK(t3, 10, Hz_10, {
+    PORTD ^= _BV(4);    // Toggle
     suspend();
 });
 
 void dumpTimes(){
 
     uart_putstr("HI!\n");
-    
-    /*
-    times[0] = micros();
-    yield();
-    times[1] = micros();
-    */
 
     for (int i = 0; i < TIMES; i+=2) {
         sprintf(time, "%lu\n", (times[i+1] - times[i]));
