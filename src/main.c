@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include "AVR_CS.h"
 
-enum status {TASK_READY, TASK_RUNNING, TASK_WAITING, TASK_DONE, TASK_DEAD};
-
 #define Hz_1    62500   // compare match register 16MHz/256/1Hz
 #define Hz_2    31250   // compare match register 16MHz/256/2Hz
 #define Hz_4    15625   // compare match register 16MHz/256/4Hz
@@ -52,6 +50,7 @@ enum status {TASK_READY, TASK_RUNNING, TASK_WAITING, TASK_DONE, TASK_DEAD};
 
 #define TASK_REQUESTED_MUTEXES_ARE_UNLOCKED (!(tasks[i]->mutex_mask & mutex_master))
 
+/** Task Control Block (TCB) */
 typedef struct {
     volatile uint8_t*   stack_ptr;                  // Pointer to the address of the task's 'private' stack in memory
     uint16_t            stack_size;                 // Size of the allocated stack in bytes
@@ -64,13 +63,25 @@ typedef struct {
     mutex_mask_t        mutex_mask;                 // bitlist of currently waiting mutexes for this task
 } Task_cenas;
 
+/** Task states */
+enum status {
+    TASK_READY,     // Ready to be executed 
+    TASK_RUNNING,   // Currently executing on the processor
+    TASK_WAITING,   // Task is waiting for a resource to be unlocked, like a mutex
+    TASK_DONE,      // Task has completed is job. Shifts to TASK_READY in the next activation period
+    TASK_DEAD       // One-shot tasks that shall not run again
+};
+
+/** List of all defined tasks in the system */
+Task_cenas* tasks[MAX_TASKS] = {0};
+/** Number of defined tasks */
+uint8_t task_count = 0;
+/** ID for the currently executing task */
+int task = 0;
+/** A bit flag for mutexes. Each bit represents a resource */
 mutex_mask_t mutex_master = 0; // mutexes are inited to 0
 
-Task_cenas* tasks[MAX_TASKS] = {0};
-uint8_t task_count = 0;
-int task = 0;
 bool from_suspension = false;
-
 #define self *(tasks[task])
 #define yield()                 from_suspension = true; tasks[task]->status = TASK_WAITING; vPortYieldFromTick();
 #define suspend()               from_suspension = true; tasks[task]->status = TASK_DONE; vPortYieldFromTick(); continue;
