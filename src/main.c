@@ -252,7 +252,7 @@ void vTaskIncrementTick() {
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i] && tasks[i]->status != TASK_DEAD) {
             if (0 == tasks[i]->_cnt_to_activation) {
-                if (tasks[i]->status != TASK_DONE) {
+                if (i && tasks[i]->status != TASK_DONE) { // ignore idle task
                     tasks[i]->stack_ptr = pxPortInitialiseStack(tasks[i]->stack_array_ptr+tasks[i]->stack_size, tasks[i]->function_pointer, 0);
                 }
                 tasks[i]->status = TASK_READY;
