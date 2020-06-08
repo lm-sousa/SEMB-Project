@@ -281,7 +281,7 @@ void vTaskSwitchContext() {
     uint8_t run_next_id = 0;
     uint8_t run_next_pr = 255;
     for(uint8_t i = 0; i < task_count; i++){
-        if(tasks[i] && tasks[i]->priority <= run_next_pr && tasks[i]->status == TASK_READY && TASK_REQUESTED_MUTEXES_ARE_UNLOCKED) {
+        if(tasks[i] && tasks[i]->priority <= run_next_pr && (tasks[i]->status == TASK_READY || tasks[i]->status == TASK_WAITING) && TASK_REQUESTED_MUTEXES_ARE_UNLOCKED) {
             run_next_id = i;
             run_next_pr = tasks[i]->priority;
         }
@@ -330,7 +330,7 @@ TASK(t2, 4, Hz_1, 0, {
     }
 });
 
-TASK(t3, 4, Hz_2, 0, {
+TASK(t3, 5, Hz_1, 0, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
