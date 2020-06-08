@@ -167,7 +167,8 @@ uint8_t addTaskTest(Task_cenas* task, uint8_t* stack) {
     return task_count - 1;
 }
 
-volatile void* volatile pxCurrentTCB = 0;
+volatile uint8_t* main_ptr = 0;
+volatile void* volatile pxCurrentTCB = &main_ptr;
 
 uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *pvParameters ) {
     uint16_t usAddress;
@@ -217,26 +218,6 @@ unsigned long times[TIMES] = {0};
 unsigned t_cnt = 0;
 char time[12];
 
-void dumpTimes(){
-
-    uart_putstr("HI!\n");
-    
-    times[0] = micros();
-    _delay_ms(20);
-    times[1] = micros();
-
-    for (int i = 0; i < TIMES; i+=2) {
-        sprintf(time, "%lu\n", (times[i+1] - times[i]));
-        uart_putstr(time);
-        _delay_ms(20);
-    }
-
-    uart_putstr("DONE!\n");
-
-    while(1){
-        asm("nop");
-    }
-}
 void vPortYieldFromTick( void ) {
     times[t_cnt++] = micros();
     // This is a naked function so the context
@@ -247,24 +228,18 @@ void vPortYieldFromTick( void ) {
     // if the new tick value has caused a delay
     // period to expire. This function call can
     // cause a task to become ready to run.
-    if (!from_suspension)
+    if (from_suspension) {
+        from_suspension = false;
+    }
+    else {
         vTaskIncrementTick();
-    from_suspension = false;
+    }
     
     // See if a context switch is required.
     // Switch to the context of a task made ready
     // to run by vTaskIncrementTick() if it has a
     // priority higher than the interrupted task.
     vTaskSwitchContext();
-    
-    if (t_cnt >= TIMES-2) {
-        times[t_cnt] = micros();
-        cli();
-        TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
-        sei();
-        uart_putstr("HI11!\n");
-        dumpTimes();
-    }
 
     // Restore the context. If a context switch
     // has occurred this will restore the context of
@@ -313,9 +288,19 @@ void vTaskSwitchContext() {
         }
     }
 
+
     task = run_next_id;
     tasks[task]->status = TASK_RUNNING;
-    pxCurrentTCB = &tasks[task]->stack_ptr;
+    if (t_cnt >= TIMES-2) {
+        times[t_cnt] = micros();
+        cli();
+        TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
+        sei();
+        pxCurrentTCB = &main_ptr;
+    }
+    else {
+        pxCurrentTCB = &tasks[task]->stack_ptr;
+    }
     if(run_next_id==0){
         PORTD |= _BV(CS_LED); // turn on iddle task LED
     }
@@ -366,6 +351,25 @@ TASK(t3, 10, Hz_2, {
     suspend();
 });
 
+void dumpTimes(){
+
+    uart_putstr("HI!\n");
+    
+    times[0] = micros();
+    _delay_ms(20);
+    times[1] = micros();
+
+    for (int i = 0; i < TIMES; i+=2) {
+        sprintf(time, "%lu\n", (times[i+1] - times[i]));
+        uart_putstr(time);
+        _delay_ms(20);
+    }
+
+    uart_putstr("DONE!\n");
+
+    return;
+}
+
 int main() {
 
     addTask(idle); // This task must be the first one for its id to be 0.
@@ -380,10 +384,9 @@ int main() {
     sprintf(time, "%lu\n", micros());
     uart_putstr(time);
 
-    
-
     hardwareInit();
-    while (true) {
+    while (!main_ptr) {
         asm("nop"); // interrrupts will stop this.
     }
+    dumpTimes();
 }
