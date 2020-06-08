@@ -16,20 +16,28 @@
 
 /**************************** ADD YOUR TASKS HERE ****************************/
 
+
 TASK(t1, 1, Hz_1, {
+    //lock(1);
     PORTD ^= _BV(2);    // Toggle
+    //unlock(1);
     suspend();
 });
 
-TASK(t2, 4, Hz_1, 2000, {
+TASK(t2, 4, Hz_1, 0, {
+    lock(1);
     PORTD ^= _BV(3);    // Toggle
+    for(uint32_t i = 0 ; i < 12000000; i++)
+        asm("nop");
+    unlock(1);
     suspend();
 });
 
-TASK(t3, 5, Hz_2, 0, {
+TASK(t3, 1, Hz_1, 0, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
+
 
 /***************************** END OF TASKS CODE *****************************/
 
