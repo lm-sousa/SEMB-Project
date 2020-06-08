@@ -3,7 +3,7 @@
 /*****************************************************************************/
 /******************************* CONFIGURATION *******************************/
 /*****************************************************************************/
-#define TICK_FREQUENCY      Hz_100
+#define TICK_FREQUENCY      Hz_20
 #define STACK_SIZE_DEFAULT  100
 #define MAX_TASKS           3
 #define NUMBER_OF_MUTEXES   8
@@ -21,12 +21,12 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-TASK(t2, 4, Hz_1, 2000, {
+TASK(t2, 4, Hz_1, {
     PORTD ^= _BV(3);    // Toggle
-    suspend();
+    suicidal_tendencies();
 });
 
-TASK(t3, 5, Hz_2, 0, {
+TASK(t3, 4, Hz_1, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
