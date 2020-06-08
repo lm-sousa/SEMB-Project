@@ -21,18 +21,15 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-uint64_t cnt = 0;
-TASK(t2, 4, Hz_1, 0, {
+TASK(t2, 4, Hz_1, {
     PORTD ^= _BV(3);    // Toggle
-    for (; cnt < 1000000000; cnt++) {
+    for(uint32_t i = 0 ; i < 12000000; i++)
         asm("nop");
-    }
-    cnt = 0;
     PORTD ^= _BV(3);    // Toggle
     suspend();
 });
 
-TASK(t3, 5, Hz_2, 0, {
+TASK(t3, 5, Hz_2, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
