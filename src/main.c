@@ -72,8 +72,10 @@ int task = 0;
 bool from_suspension = false;
 
 #define self *(tasks[task])
-#define yield()     from_suspension = true; tasks[task]->status = TASK_WAITING; vPortYieldFromTick();
-#define suspend()   from_suspension = true; tasks[task]->status = TASK_DONE; vPortYieldFromTick(); continue;
+#define yield()                 from_suspension = true; tasks[task]->status = TASK_WAITING; vPortYieldFromTick();
+#define suspend()               from_suspension = true; tasks[task]->status = TASK_DONE; vPortYieldFromTick(); continue;
+#define euthanasia(t)           from_suspension = true; t->status = TASK_DEAD; vPortYieldFromTick(); continue;
+#define suicidal_tendencies()   euthanasia(tasks[task])
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
@@ -160,8 +162,8 @@ void hardwareInit(){
 #define TASK3(name, frequency, code)                            TASK4(name, 254, frequency, code)
 #define TASK2(name, code)                                       TASK3(name, Hz_1, code)
 
-#define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
-#define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
+#define GET_TASK_MACRO(_1,_2,_3,_4,_5,_6,NAME,...) NAME
+#define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK6, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
 
 #define addTask(task) task.stack_array_ptr = task##_stack; addTaskTest(&task)
 uint8_t addTaskTest(Task_cenas* task) {
@@ -248,7 +250,7 @@ void vPortYieldFromTick( void ) {
 void vTaskIncrementTick() {
     
     for (uint8_t i = 0; i < task_count; i++) {
-        if (tasks[i]) {
+        if (tasks[i] && tasks[i]->status != TASK_DEAD) {
             if (0 == tasks[i]->_cnt_to_activation) {
                 if (tasks[i]->status != TASK_DONE) {
                     tasks[i]->stack_ptr = pxPortInitialiseStack(tasks[i]->stack_array_ptr+tasks[i]->stack_size, tasks[i]->function_pointer, 0);
@@ -311,7 +313,7 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
+TASK(idle, 255, 0, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
     asm("nop");
 });
 
