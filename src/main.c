@@ -1,8 +1,10 @@
 #include <Arduino.h>
-#include <avr/interrupt.h>
-#include <avr/io.h>
-#include <inttypes.h>
+//#include <avr/interrupt.h>
+//#include <avr/io.h>
+//#include <inttypes.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <util/delay.h>
 #include "AVR_CS.h"
 #include "my_uart.h"
 
@@ -238,7 +240,7 @@ void dumpTimes(){
     }
 }
 void vPortYieldFromTick( void ) {
-    times[t_cnt++] = micros();
+    times[t_cnt++] = micros2();
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
@@ -258,7 +260,7 @@ void vPortYieldFromTick( void ) {
     vTaskSwitchContext();
     
     if (t_cnt >= TIMES-2) {
-        times[t_cnt] = micros();
+        times[t_cnt] = micros2();
         cli();
         TIMSK1 &= ~(1 << OCIE1A);    // disable timer compare interrupt
         sei();
@@ -270,7 +272,7 @@ void vPortYieldFromTick( void ) {
     // has occurred this will restore the context of
     // the task being resumed.
     portRESTORE_CONTEXT();
-    times[t_cnt++] = micros();
+    times[t_cnt++] = micros2();
     
     // Return from this naked function.
     asm volatile ( "ret" );
@@ -374,6 +376,8 @@ int main() {
     addTask(t3);
 
     init();
+    /** init timer and uart */
+    start_counting_time();
     uart_init();
     uart_putstr("Successfull init!\n");
     uart_putstr("micros: ");
