@@ -355,9 +355,11 @@ void dumpTimes(){
 
     uart_putstr("HI!\n");
     
+    /*
     times[0] = micros();
-    _delay_ms(20);
+    yield();
     times[1] = micros();
+    */
 
     for (int i = 0; i < TIMES; i+=2) {
         sprintf(time, "%lu\n", (times[i+1] - times[i]));
