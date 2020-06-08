@@ -3,7 +3,7 @@
 /*****************************************************************************/
 /******************************* CONFIGURATION *******************************/
 /*****************************************************************************/
-#define TICK_FREQUENCY      Hz_100
+#define TICK_FREQUENCY      Hz_20
 #define STACK_SIZE_DEFAULT  100
 #define MAX_TASKS           3
 #define NUMBER_OF_MUTEXES   8
@@ -21,7 +21,13 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-TASK(t2, 4, Hz_1, 2000, {
+uint64_t cnt = 0;
+TASK(t2, 4, Hz_1, 0, {
+    PORTD ^= _BV(3);    // Toggle
+    for (; cnt < 1000000000; cnt++) {
+        asm("nop");
+    }
+    cnt = 0;
     PORTD ^= _BV(3);    // Toggle
     suspend();
 });
