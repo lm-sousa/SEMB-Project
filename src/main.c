@@ -157,7 +157,7 @@ void hardwareInit(){
     .stack_size = stack_sz, \
     ._cnt_to_activation = TASK_DELAY_TO_TICKS(initial_delay), \
     .priority = pr, \
-    .status = TASK_WAITING, \
+    .status = TASK_DONE, \
     .frequency = TASK_FREQUENCY(fr), \
     .mutex_mask = 0 \
  }; \
