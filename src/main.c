@@ -24,7 +24,7 @@ enum status {TASK_READY, TASK_RUNNING, TASK_WAITING, TASK_DONE, TASK_DEAD};
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_2k
+#define TICK_FREQUENCY Hz_1
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 #define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*(double)(double)(Hz_1k/(double)TICK_FREQUENCY))
 
@@ -252,9 +252,9 @@ void vTaskIncrementTick() {
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i] && tasks[i]->status != TASK_DEAD) {
             if (0 == tasks[i]->_cnt_to_activation) {
-                if (i && tasks[i]->status != TASK_DONE) { // ignore idle task
+                /*if (i && tasks[i]->status != TASK_DONE) { // ignore idle task
                     tasks[i]->stack_ptr = pxPortInitialiseStack(tasks[i]->stack_array_ptr+tasks[i]->stack_size, tasks[i]->function_pointer, 0);
-                }
+                }*/
                 tasks[i]->status = TASK_READY;
                 tasks[i]->_cnt_to_activation = tasks[i]->frequency;
             }
@@ -324,13 +324,10 @@ TASK(t1, 1, Hz_1, {
 
 TASK(t2, 4, Hz_1, 0, {
     PORTD ^= _BV(3);    // Toggle
-    //suspend();
-    while(1) {
-        asm("nop");
-    }
+    suspend();
 });
 
-TASK(t3, 5, Hz_1, 0, {
+TASK(t3, 5, Hz_2, 0, {
     PORTD ^= _BV(4);    // Toggle
     suspend();
 });
