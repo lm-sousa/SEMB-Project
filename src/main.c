@@ -16,13 +16,13 @@
 
 /**************************** ADD YOUR TASKS HERE ****************************/
 
-TASK(t1, 4, Hz_2, 0, {
+TASK(t1, 4, Hz_1, 0, {
     //if(trylock(1))
         PORTD ^= _BV(2);    // Toggle
     suspend();
 });
 
-TASK(t2, 4, Hz_2, 1000, {
+TASK(t2, 4, Hz_1, 2000, {
     //if (trylock(1))
         PORTD ^= _BV(3);    // Toggle
     suspend();
