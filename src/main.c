@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "AVR_CS.h"
 
-enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
+enum status {TASK_READY, TASK_RUNNING, TASK_WAITING, TASK_DONE, TASK_DEAD};
 
 #define Hz_1    62500   // compare match register 16MHz/256/1Hz
 #define Hz_2    31250   // compare match register 16MHz/256/2Hz
@@ -54,6 +54,8 @@ enum status {TASK_RUNNING, TASK_WAITING, TASK_READY};
 
 typedef struct {
     volatile uint8_t*   stack_ptr;                  // Pointer to the address of the task's 'private' stack in memory
+    uint16_t            stack_size;                 // Size of the allocated stack in bytes
+    uint8_t*            stack_array_ptr;
     void                (*function_pointer)(void);  // Pointer to task function.
     uint16_t            _cnt_to_activation;         // Counts to zero. Activate function on zero.
     const uint8_t       priority;                   // Priority for fixed-priority scheduling
@@ -70,8 +72,8 @@ int task = 0;
 bool from_suspension = false;
 
 #define self *(tasks[task])
-#define yield() from_suspension = true; vPortYieldFromTick();
-#define suspend() from_suspension = true; tasks[task]->status = TASK_WAITING; yield(); continue;
+#define yield()     from_suspension = true; tasks[task]->status = TASK_WAITING; vPortYieldFromTick();
+#define suspend()   from_suspension = true; tasks[task]->status = TASK_DONE; vPortYieldFromTick(); continue;
 
 void vPortYieldFromTick( void ) __attribute__ ( ( naked ) );
 void vTaskIncrementTick( void );
@@ -133,12 +135,13 @@ void hardwareInit(){
     interrupts();  // enable all interrupts
 }
 
-#define TASK6(name, pr, fr, initial_delay, stack_size, code) \
+#define TASK6(name, pr, fr, initial_delay, stack_sz, code) \
  void name##_f(void) __attribute__ ( ( OS_task ) ); \
- uint8_t name##_stack[stack_size]; \
+ uint8_t name##_stack[stack_sz]; \
  Task_cenas name = { \
     .function_pointer = name##_f , \
     .stack_ptr = 0, \
+    .stack_size = stack_sz, \
     ._cnt_to_activation = TASK_DELAY_TO_TICKS(initial_delay), \
     .priority = pr, \
     .status = TASK_WAITING, \
@@ -160,9 +163,9 @@ void hardwareInit(){
 #define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
 #define TASK(...) GET_TASK_MACRO(__VA_ARGS__, TASK5, TASK4, TASK3, TASK2)(__VA_ARGS__)
 
-#define addTask(task) addTaskTest(&task, task##_stack)
-uint8_t addTaskTest(Task_cenas* task, uint8_t* stack) {
-    task->stack_ptr = pxPortInitialiseStack(stack+STACK_SIZE_DEFAULT, task->function_pointer, 0);
+#define addTask(task) task.stack_array_ptr = task##_stack; addTaskTest(&task)
+uint8_t addTaskTest(Task_cenas* task) {
+    task->stack_ptr = pxPortInitialiseStack(task->stack_array_ptr+task->stack_size, task->function_pointer, 0);
     tasks[task_count] = task;
     task_count++;
     return task_count - 1;
@@ -247,6 +250,9 @@ void vTaskIncrementTick() {
     for (uint8_t i = 0; i < task_count; i++) {
         if (tasks[i]) {
             if (0 == tasks[i]->_cnt_to_activation) {
+                /*if (tasks[i]->status != TASK_DONE) {
+                    tasks[i]->stack_ptr = 1;//pxPortInitialiseStack(stack+STACK_SIZE_DEFAULT, tasks[i]->function_pointer, 0);
+                }*/
                 tasks[i]->status = TASK_READY;
                 tasks[i]->_cnt_to_activation = tasks[i]->frequency;
             }
@@ -264,7 +270,7 @@ void vTaskSwitchContext() {
     PORTD ^= _BV(STATUS_LED);    // Pisca-pisca no ma no ma ei
 
     if(tasks[task]->status == TASK_RUNNING)
-        tasks[task]->status = TASK_READY;
+        tasks[task]->status = TASK_WAITING;
 
     PORTD &= ~(_BV(CS_LED)); // turn off iddle task LED
 
@@ -314,19 +320,13 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-TASK(t2, 4, Hz_2, 0, {
-    if (trylock(1)) {
-        PORTD ^= _BV(3);    // Toggle
-        yield();
-    }
+TASK(t2, 4, Hz_5, 0, {
+    PORTD ^= _BV(3);    // Toggle
     suspend();
 });
 
 TASK(t3, 4, Hz_2, 0, {
-    if (trylock(1)) {
-        PORTD ^= _BV(4);    // Toggle
-        yield();
-    }
+    PORTD ^= _BV(4);    // Toggle
     suspend();
 });
 
