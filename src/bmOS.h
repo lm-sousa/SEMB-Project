@@ -30,7 +30,7 @@ enum {false, true}; // ...definitions
 #endif
 
 #ifndef MAX_TASKS
-    #error 'MAX_TASKS' must be defined.
+    #error 'MAX_TASKS' must be defined even if is 0.
 #endif
 
 #ifndef NUMBER_OF_MUTEXES
@@ -77,7 +77,7 @@ enum status {
 };
 
 /** List of all defined tasks in the system */
-Task_cenas* tasks[MAX_TASKS] = {0};
+Task_cenas* tasks[MAX_TASKS+1] = {0};
 /** Number of defined tasks */
 uint8_t task_count = 0;
 /** ID for the currently executing task */

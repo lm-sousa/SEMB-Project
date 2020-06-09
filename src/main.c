@@ -5,7 +5,7 @@
 /*****************************************************************************/
 #define TICK_FREQUENCY      Hz_100
 #define STACK_SIZE_DEFAULT  100
-#define MAX_TASKS           4
+#define MAX_TASKS           3
 #define NUMBER_OF_MUTEXES   8
 /*****************************************************************************/
 
