@@ -13,8 +13,14 @@
 #include "bmOS.h" // DO NOT MOVE THIS LINE
 
 
-
 /**************************** ADD YOUR TASKS HERE ****************************/
+
+/***
+ * TASK | FREQUENCY | TASK_FREQUENCY 
+ * T1   | 5Hz       | 2
+ * T2   | 2Hz       | 5
+ * T3   | 1Hz       | 10
+ */
 
 TASK(t1, 1, Hz_5, {
     PORTD ^= _BV(2);    // Toggle
