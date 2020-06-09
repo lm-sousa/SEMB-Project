@@ -36,8 +36,8 @@
 
 #define NUMBER_OF_MUTEXES 16
 
-#if !NUMBER_OF_MUTEXES || NUMBER_OF_MUTEXES > 32
-    #error NUMBER_OF_MUTEXES needs to be a value between 1 and 32.
+#if !NUMBER_OF_MUTEXES || NUMBER_OF_MUTEXES > 64
+    #error NUMBER_OF_MUTEXES needs to be a value between 1 and 64.
 #endif
 
 #if NUMBER_OF_MUTEXES <= 8
@@ -46,6 +46,8 @@
     typedef uint16_t mutex_mask_t;
 #elif NUMBER_OF_MUTEXES <= 32
     typedef uint32_t mutex_mask_t;
+#elif NUMBER_OF_MUTEXES <= 64
+    typedef uint64_t mutex_mask_t;
 #endif
 
 #define TASK_REQUESTED_MUTEXES_ARE_UNLOCKED (!(tasks[i]->mutex_mask & mutex_master))
