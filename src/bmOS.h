@@ -20,6 +20,24 @@ enum {false, true}; // ...definitions
 #define TICK_LED    6
 #define CS_LED      7
 
+#ifndef TICK_FREQUENCY
+    #error 'TICK_FREQUENCY' must be defined.
+#endif
+
+#ifndef STACK_SIZE_DEFAULT
+    #warning 'STACK_SIZE_DEFAULT' is not defined. Using 100 bytes as default.
+    #define STACK_SIZE_DEFAULT 100
+#endif
+
+#ifndef MAX_TASKS
+    #error 'MAX_TASKS' must be defined.
+#endif
+
+#ifndef NUMBER_OF_MUTEXES
+    #error 'NUMBER_OF_MUTEXES' must be defined.
+#endif
+
+
 #if !NUMBER_OF_MUTEXES || NUMBER_OF_MUTEXES > 64
     #error NUMBER_OF_MUTEXES needs to be a value between 1 and 64.
 #endif
