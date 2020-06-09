@@ -222,7 +222,6 @@ void vPortYieldFromTick( void ) {
     // This is a naked function so the context
     // must be saved manually. 
     portSAVE_CONTEXT();
-    times[t_cnt++] = micros();
 
     // Increment the tick count and check to see
     // if the new tick value has caused a delay
@@ -241,7 +240,6 @@ void vPortYieldFromTick( void ) {
     // priority higher than the interrupted task.
     vTaskSwitchContext();
 
-    times[t_cnt++] = micros();
     // Restore the context. If a context switch
     // has occurred this will restore the context of
     // the task being resumed.
@@ -325,22 +323,8 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED) {
 
 
 TASK(idle, 255, 0, 40, { // lowest priority task will run when no other task can run. This task is always ready.
-    asm("nop");
-});
-
-TASK(t1, 1, Hz_1, {
-    PORTD ^= _BV(2);    // Toggle
-    suspend();
-});
-
-TASK(t2, 4, Hz_2, {
-    PORTD ^= _BV(3);    // Toggle
-    suspend();
-});
-
-TASK(t3, 10, Hz_10, {
-    PORTD ^= _BV(4);    // Toggle
-    suspend();
+    times[t_cnt++] = micros();
+    yield();
 });
 
 void dumpTimes(){
@@ -361,9 +345,6 @@ void dumpTimes(){
 int main() {
 
     addTask(idle); // This task must be the first one for its id to be 0.
-    addTask(t1);
-    addTask(t2);
-    addTask(t3);
 
     init();
     uart_init();
