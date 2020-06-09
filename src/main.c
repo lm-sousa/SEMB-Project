@@ -22,19 +22,23 @@
 #define Hz_12k5 5       // compare match register 16MHz/256/12.5kHz
 #define Hz_62k5 1       // compare match register 16MHz/256/62.5kHz
 
-#define TICK_FREQUENCY Hz_1
+
+/*****************************************************************************/
+/******************************* CONFIGURATION *******************************/
+/*****************************************************************************/
+#define TICK_FREQUENCY      Hz_100
+#define STACK_SIZE_DEFAULT  100
+#define MAX_TASKS           14
+#define NUMBER_OF_MUTEXES   16
+/*****************************************************************************/
+
+
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 #define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*((double)Hz_1k)/((double)TICK_FREQUENCY))
-
-#define STACK_SIZE_DEFAULT 100
 
 #define STATUS_LED  5
 #define TICK_LED    6
 #define CS_LED      7
-
-#define MAX_TASKS   14
-
-#define NUMBER_OF_MUTEXES 16
 
 #if !NUMBER_OF_MUTEXES || NUMBER_OF_MUTEXES > 64
     #error NUMBER_OF_MUTEXES needs to be a value between 1 and 64.
@@ -131,9 +135,6 @@ void unlock(uint8_t index){
 void hardwareInit(){
     noInterrupts();  // disable all interrupts
     
-    DDRD |= _BV(2);
-    DDRD |= _BV(3);
-    DDRD |= _BV(4);
     DDRD |= _BV(STATUS_LED);
     DDRD |= _BV(TICK_LED);
     DDRD |= _BV(CS_LED);
@@ -335,7 +336,7 @@ TASK(t1, 1, Hz_1, {
     suspend();
 });
 
-TASK(t2, 4, Hz_1, 0, {
+TASK(t2, 4, Hz_1, 2000, {
     PORTD ^= _BV(3);    // Toggle
     suspend();
 });
@@ -348,6 +349,11 @@ TASK(t3, 5, Hz_2, 0, {
 int main() {
 
     addTask(idle); // This task must be the first one for its id to be 0.
+    
+    DDRD |= _BV(2);
+    DDRD |= _BV(3);
+    DDRD |= _BV(4);
+
     addTask(t1);
     addTask(t2);
     addTask(t3);
