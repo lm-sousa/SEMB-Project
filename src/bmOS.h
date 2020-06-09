@@ -1,14 +1,17 @@
 #ifndef __BMOS_H__
 #define __BMOS_H__
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <avr/interrupt.h>
-#include <avr/io.h>
-#include <inttypes.h>
-#include <stdlib.h>
+//#include <avr/io.h>
+//#include <inttypes.h>
+//#include <stdlib.h>
 #include "AVR_CS.h"
 
 #include "freq16_256.h"
+
+#define bool _Bool  // Replace Arduino.h ...
+enum {false, true}; // ...definitions
 
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
 #define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*((double)Hz_1k)/((double)TICK_FREQUENCY))
@@ -118,7 +121,7 @@ void unlock(uint8_t index){
 }
 
 void hardwareInit(){
-    noInterrupts();  // disable all interrupts
+    cli();  // disable all interrupts
     
     DDRD |= _BV(STATUS_LED);
     DDRD |= _BV(TICK_LED);
@@ -133,7 +136,7 @@ void hardwareInit(){
     TCCR1B |= (1 << CS12);      // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);    // enable timer compare interrupt
 
-    interrupts();  // enable all interrupts
+    sei();  // enable all interrupts
 }
 
 #define TASK6(name, pr, fr, initial_delay, stack_sz, code) \
