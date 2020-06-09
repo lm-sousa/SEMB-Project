@@ -100,6 +100,7 @@ void vTaskSwitchContext( void );
 uint8_t *pxPortInitialiseStack( uint8_t* pxTopOfStack, void (*pxCode)(), void *pvParameters );
 
 bool trylock(uint8_t index){
+    cli();
     if(index >= NUMBER_OF_MUTEXES)
         return 0;
 
@@ -107,28 +108,35 @@ bool trylock(uint8_t index){
         return 0;
     
     mutex_master |= _BV(index);
+    sei();
     return 1;
 }
 
 void lock(uint8_t index){
+    cli();
     if(index >= NUMBER_OF_MUTEXES)
         return;
 
     while(mutex_master & _BV(index)) {
         tasks[task]->mutex_mask |= _BV(index);
+        sei();
         yield();
+        cli();
     }
     tasks[task]->mutex_mask &= ~(_BV(index));
     
     mutex_master |= _BV(index);
+    sei();
     return;
 }
 
 void unlock(uint8_t index){
+    cli();
     if(index >= NUMBER_OF_MUTEXES)
         return;
     
     mutex_master &= ~(_BV(index));
+    sei();
     return;
 }
 
