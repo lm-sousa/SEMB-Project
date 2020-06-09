@@ -3,7 +3,7 @@
 /*****************************************************************************/
 /******************************* CONFIGURATION *******************************/
 /*****************************************************************************/
-#define TICK_FREQUENCY      Hz_5
+#define TICK_FREQUENCY      Hz_20
 #define STACK_SIZE_DEFAULT  100
 #define MAX_TASKS           3
 #define NUMBER_OF_MUTEXES   8
