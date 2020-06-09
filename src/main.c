@@ -24,7 +24,7 @@
 
 #define TICK_FREQUENCY Hz_1
 #define TASK_FREQUENCY(freq_in_Hz_ints) freq_in_Hz_ints/TICK_FREQUENCY
-#define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*(double)(double)(Hz_1k/(double)TICK_FREQUENCY))
+#define TASK_DELAY_TO_TICKS(d) (uint16_t)(d*((double)Hz_1k)/((double)TICK_FREQUENCY))
 
 #define STACK_SIZE_DEFAULT 100
 
